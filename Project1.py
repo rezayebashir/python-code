@@ -1,95 +1,69 @@
-import tkinter as tk
+import sqlite3
 
+# 1. Create/connect to university.db
+conn = sqlite3.connect("university.db")
+cursor = conn.cursor()
 
-class KeyboardEventViewer:
+# Drop table if it already exists (so you can run the script cleanly multiple times)
+cursor.execute("DROP TABLE IF EXISTS students")
 
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Practical Lab 2 — Keyboard Event Viewer")
-        self.root.geometry("500x350")
+# 2. Create a 'students' table
+cursor.execute("""
+CREATE TABLE students (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    semester INTEGER NOT NULL,
+    gpa REAL
+)
+""")
 
-        # 1. Main Label to display the last key pressed details
-        self.header_label = tk.Label(
-            self.root, text="Press any key...", font=("Arial", 14, "bold")
-        )
-        self.header_label.pack(pady=15)
+# 3. Insert at least five students using parameterized queries (?)
+students_data = [
+    ("Ahmad", "Computer Science", 1, 3.95),
+    ("Zahra", "Software Engineering", 2, 3.88),
+    ("Omid", "Computer Science", 1, 3.70),
+    ("Maryam", "Data Science", 3, 3.92),
+    ("Bilal", "Information Technology", 2, 3.60)
+]
 
-        self.display_label = tk.Label(
-            self.root,
-            text="Key Symbol: None\nCharacter: None",
-            font=("Courier", 12),
-            justify=tk.LEFT,
-            bg="#f0f0f0",
-            padx=10,
-            pady=10,
-            width=30,
-            relief=tk.SUNKEN,
-        )
-        self.display_label.pack(pady=10)
+cursor.executemany(
+    "INSERT INTO students (name, department, semester, gpa) VALUES (?, ?, ?, ?)",
+    students_data
+)
+conn.commit()
 
-        # Status strip at the bottom for messages (like Ctrl+S)
-        self.status_label = tk.Label(
-            self.root,
-            text="Status: Ready",
-            bd=1,
-            relief=tk.SUNKEN,
-            anchor=tk.W,
-            font=("Arial", 10),
-            bg="lightyellow",
-        )
-        self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
+# 4. Display all records
+print("--- 1. All Students ---")
+cursor.execute("SELECT * FROM students")
+for row in cursor.fetchall():
+    print(row)
 
-        # 6. Add an Entry widget to compare event behaviors when focused
-        self.entry_label = tk.Label(
-            self.root,
-            text="Type below to test events while focused inside an Entry:",
-            font=("Arial", 10),
-        )
-        self.entry_label.pack(pady=(15, 2))
+# 5. Search by semester (e.g., Semester 1)
+target_semester = 1
+print(f"\n--- 2. Students in Semester {target_semester} ---")
+cursor.execute("SELECT * FROM students WHERE semester = ?", (target_semester,))
+for row in cursor.fetchall():
+    print(row)
 
-        self.entry_widget = tk.Entry(self.root, font=("Arial", 11), width=35)
-        self.entry_widget.pack(pady=5)
+# 6. Update one student's department (e.g., change student with ID 3 to Artificial Intelligence)
+cursor.execute(
+    "UPDATE students SET department = ? WHERE id = ?",
+    ("Artificial Intelligence", 3)
+)
+conn.commit()
+print("\n--- 3. Updated Student ID 3's Department ---")
 
-        # 2. Bind <KeyPress> globally to the root window
-        self.root.bind("<KeyPress>", self.on_key_press)
+# 7. Delete one record by ID (e.g., delete student with ID 5)
+cursor.execute("DELETE FROM students WHERE id = ?", (5,))
+conn.commit()
+print("--- 4. Deleted Student with ID 5 ---")
 
-        # 4. Bind <Escape> specifically to clear the display labels
-        self.root.bind("<Escape>", self.clear_display)
+# 8. Print the final table contents
+print("\n--- 5. Final Table Contents ---")
+cursor.execute("SELECT * FROM students")
+for row in cursor.fetchall():
+    print(row)
 
-        # 5. Bind Ctrl+S (case insensitive handling for 's' and 'S')
-        self.root.bind("<Control-s>", self.show_saved_status)
-        self.root.bind("<Control-S>", self.show_saved_status)
-
-    # 3. Handle keypress and display event.keysym and event.char
-    def on_key_press(self, event):
-        # Ignore Escape and Control modifiers to avoid overwriting their dedicated actions
-        if event.keysym in ["Escape", "Control_L", "Control_R"]:
-            return
-
-        # Handle empty/non-printable characters securely
-        char_disp = (
-            repr(event.char)
-            if event.char and event.char.isprintable()
-            else f"'{event.char}'" if event.char else "None"
-        )
-
-        self.display_label.config(
-            text=f"Key Symbol: {event.keysym}\nCharacter: {char_disp}"
-        )
-        self.status_label.config(text="Status: Key captured")
-
-    # 4. Function to clear display values
-    def clear_display(self, event):
-        self.display_label.config(text="Key Symbol: None\nCharacter: None")
-        self.status_label.config(text="Status: Display Cleared via Escape")
-
-    # 5. Function to trigger the 'Saved' notification
-    def show_saved_status(self, event):
-        self.status_label.config(text="Status: File Saved Successfully! (Ctrl+S)")
-
-
-# Run the application
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = KeyboardEventViewer(root)
-    root.mainloop()
+# Close the database connection
+conn.close()
